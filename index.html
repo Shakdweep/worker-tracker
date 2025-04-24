@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Worker Payments</title>
+</head>
+<body>
+  <h2>Add Payment</h2>
+  <form id="paymentForm">
+    <input type="text" id="name" placeholder="Worker Name" required><br><br>
+    <input type="number" id="amount" placeholder="Amount Paid" required><br><br>
+    <input type="date" id="date"><br><br>
+    <button type="submit">Submit</button>
+  </form>
+
+  <h2>Total Payments</h2>
+  <table border="1" id="workerTable">
+    <thead><tr><th>Worker</th><th>Total Paid</th></tr></thead>
+    <tbody></tbody>
+  </table>
+
+  <script>
+    const scriptURL = 'https://script.google.com/macros/s/AKfycbzU4Bur3mPGhpPwKXVqXv4wvqDrPosNXNFcWE0E7rHHx-HPIEKudTFH4VuVZhR8z_UzTQ/exec';
+
+    document.getElementById('paymentForm').addEventListener('submit', function(e) {
+      e.preventDefault();
+      const data = {
+        name: document.getElementById('name').value,
+        amount: document.getElementById('amount').value,
+        date: document.getElementById('date').value
+      };
+
+      fetch(scriptURL, {
+        method: 'POST',
+        body: JSON.stringify(data)
+      })
+      .then(() => {
+        alert("Submitted!");
+        document.getElementById('paymentForm').reset();
+        loadTotals();
+      })
+      .catch(err => alert("Error: " + err));
+    });
+
+    function loadTotals() {
+      fetch(scriptURL)
+        .then(res => res.json())
+        .then(data => {
+          const tbody = document.querySelector('#workerTable tbody');
+          tbody.innerHTML = '';
+          Object.keys(data).forEach(worker => {
+            const row = `<tr><td>${worker}</td><td>${data[worker]}</td></tr>`;
+            tbody.innerHTML += row;
+          });
+        });
+    }
+
+    window.onload = loadTotals;
+  </script>
+</body>
+</html>
