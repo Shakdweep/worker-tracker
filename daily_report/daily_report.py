@@ -29,13 +29,22 @@ CREDENTIALS_FILE = "sagar_shakdweep.json"
 # =========================
 # METABASE DATA FETCH
 # =========================
-def fetchdata(sql_query):
+def get_metabase_token():
+    """Authenticate with Metabase and return a session token."""
+    auth = requests.post(
+        f"{METABASE_URL}/api/session",
+        json={"username": USERNAME, "password": PASSWORD},
+        timeout=(30, 30)
+    )
+    auth.raise_for_status()
+    return auth.json()['id']
+
+def fetchdata(sql_query, token=None):
     """Send SQL query to Metabase and return results as a DataFrame."""
     try:
-        # Authentication
-        auth = requests.post(f"{METABASE_URL}/api/session", json={"username": USERNAME, "password": PASSWORD})
-        auth.raise_for_status()
-        token = auth.json()['id']
+        # Authenticate only if a token was not provided
+        if token is None:
+            token = get_metabase_token()
         headers = {"X-Metabase-Session": token}
         
         # Debug: Print query info
@@ -51,7 +60,7 @@ def fetchdata(sql_query):
             }
         }
         
-        response = requests.post(f"{METABASE_URL}/api/dataset", headers=headers, json=query_dict, timeout=300)
+        response = requests.post(f"{METABASE_URL}/api/dataset", headers=headers, json=query_dict, timeout=(30, 600))
         response.raise_for_status()
         result = response.json()
         
@@ -90,7 +99,7 @@ def fetchdata(sql_query):
         return pd.DataFrame()
 
 # Add a new function for large dataset handling
-def fetchdata_with_pagination(sql_query, batch_size=10000):
+def fetchdata_with_pagination(sql_query, batch_size=10000, token=None):
     """Fetch large datasets using LIMIT/OFFSET pagination."""
     try:
         all_dfs = []
@@ -104,7 +113,7 @@ def fetchdata_with_pagination(sql_query, batch_size=10000):
             """
             
             print(f"Fetching batch starting at offset {offset}...")
-            df_batch = fetchdata(paginated_query)
+            df_batch = fetchdata(paginated_query, token=token)
             
             if df_batch.empty:
                 break
@@ -484,10 +493,11 @@ if __name__ == "__main__":
         # Fetch data with enhanced debugging
         print("FETCHING: Data from Metabase...")
         print("Trying standard fetch first...")
-        
-        df1 = fetchdata(QUERIES["main"])
-        login = fetchdata(QUERIES["login"])
-        credit = fetchdata(QUERIES["credit"])
+
+        token = get_metabase_token()
+        df1 = fetchdata(QUERIES["main"], token=token)
+        login = fetchdata(QUERIES["login"], token=token)
+        credit = fetchdata(QUERIES["credit"], token=token)
         
         # If we suspect truncation, try paginated approach
         if len(df1) == 2000 or len(credit) == 2000:
@@ -496,14 +506,14 @@ if __name__ == "__main__":
             
             if len(df1) == 2000:
                 print("Re-fetching main data with pagination...")
-                df1_paginated = fetchdata_with_pagination(QUERIES["main"])
+                df1_paginated = fetchdata_with_pagination(QUERIES["main"], token=token)
                 if len(df1_paginated) > len(df1):
                     print(f"Pagination successful: {len(df1)} -> {len(df1_paginated)} rows")
                     df1 = df1_paginated
             
             if len(credit) == 2000:
                 print("Re-fetching credit data with pagination...")
-                credit_paginated = fetchdata_with_pagination(QUERIES["credit"])
+                credit_paginated = fetchdata_with_pagination(QUERIES["credit"], token=token)
                 if len(credit_paginated) > len(credit):
                     print(f"Pagination successful: {len(credit)} -> {len(credit_paginated)} rows")
                     credit = credit_paginated
