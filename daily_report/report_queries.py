@@ -1,0 +1,5 @@
+QUERIES = {
+    "main": "",
+    "login": "",
+    "credit": ""
+}
